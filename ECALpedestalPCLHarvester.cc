@@ -35,10 +35,10 @@ void ECALpedestalPCLHarvester::dqmEndJob(DQMStore::IBooker& ibooker_, DQMStore::
 
     // calculate pedestals and fill db record
     EcalPedestals pedestals;
-    int kBarrelSize = 61200;
-    int kEndcapSize = 2*7324;
-    int skipped_channels_EB = 0;
-    int skipped_channels_EE = 0;
+    double kBarrelSize = 61200;
+    double kEndcapSize = 2*7324;
+    double skipped_channels_EB = 0;
+    double skipped_channels_EE = 0;
 
 
     for (uint16_t i =0; i< EBDetId::kSizeForDenseIndexing; ++i) {
@@ -103,7 +103,7 @@ void ECALpedestalPCLHarvester::dqmEndJob(DQMStore::IBooker& ibooker_, DQMStore::
             ped.mean_x12=oldped.mean_x12;
             ped.rms_x12=oldped.rms_x12;
 
-	    skipped_channels_EE++;
+	        skipped_channels_EE++;
         }
 
         // copy g6 and g1 pedestals from corresponding record
@@ -115,10 +115,17 @@ void ECALpedestalPCLHarvester::dqmEndJob(DQMStore::IBooker& ibooker_, DQMStore::
         pedestals.setValue(id.rawId(),ped);
     }
 
+    bool enough_stat = false;
+    if ((kBarrelSize-skipped_channels_EB)/kBarrelSize > threshChannelsAnalyzed_ &&
+        (kEndcapSize-skipped_channels_EE)/kEndcapSize > threshChannelsAnalyzed_ ){
 
-    if( ((kBarrelSize-skipped_channels_EB)/kBarrelSize) > threshChannelsAnalyzed_ && ((kEndcapSize-skipped_channels_EE)/kEndcapSize) > threshChannelsAnalyzed_ ){
+        enough_stat=true;
+    }
 
-    dqmPlots(pedestals, ibooker_);
+    
+    if(enough_stat){
+
+      dqmPlots(pedestals, ibooker_);
 
     }
 
@@ -134,11 +141,12 @@ void ECALpedestalPCLHarvester::dqmEndJob(DQMStore::IBooker& ibooker_, DQMStore::
     // write out pedestal record
     edm::Service<cond::service::PoolDBOutputService> poolDbService;
 
-    if( poolDbService.isAvailable() )
-        poolDbService->writeOne( &pedestals, poolDbService->currentTime(),
-                                 "EcalPedestalsRcd"  );
-    else
+    if ( !poolDbService.isAvailable() ) {
         throw std::runtime_error("PoolDBService required.");
+    }
+    if (enough_stat)
+      poolDbService->writeOne( &pedestals, poolDbService->currentTime(),"EcalPedestalsRcd"  );
+
 }
 
 
